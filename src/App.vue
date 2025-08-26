@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, nextTick, watch } from 'vue';
 import GameBoard from './components/GameBoard.vue';
 import Keyboard from './components/Keyboard.vue';
 import Modal from './components/Modal.vue';
@@ -134,7 +134,7 @@ const updateStats = (didWin: boolean, winRowIndex: number | null) => {
   saveStats();
 };
 
-const startGame = (mode: number) => {
+async function startGame(mode: number) {
   isReady.value = false;
   if (wordList.value.length === 0) {
       showToast("Banco de palavras vazio ou inválido.");
@@ -168,10 +168,10 @@ const startGame = (mode: number) => {
   isLoading.value = false;
   showEndGameModal.value = false;
   
-  nextTick(() => {
-    isReady.value = true;
-  });
-};
+  await nextTick();
+  isReady.value = true;
+  handleTileSelect(0, 0, 0); // <-- ESTA É A LINHA DA CORREÇÃO
+}
 
 const showToast = (message: string) => {
   toast.value = { show: true, message };
@@ -425,12 +425,17 @@ onMounted(async () => {
   loadStats();
   loadSettings();
   await loadWordList();
-  startGame(gameMode.value);
+  await startGame(gameMode.value);
   window.addEventListener('keydown', handlePhysicalKeyboard);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handlePhysicalKeyboard);
+});
+
+// DEBUG: Observa a variável do teclado e imprime no console sempre que ela mudar.
+watch(keyEvaluations, (newValue) => {
+  console.log("STATUS DO TECLADO ATUALIZADO:", newValue);
 });
 </script>
 
