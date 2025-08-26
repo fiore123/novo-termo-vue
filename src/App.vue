@@ -40,15 +40,17 @@ const deaccent = (text: string) => {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 };
 
-// CORREÇÃO DEFINITIVA: Lógica de avaliação do teclado refeita
 const keyEvaluations = computed(() => {
     const evaluations: Record<string, string[]> = {};
     const priority = { correct: 3, present: 2, absent: 1, empty: 0 };
 
-    // 1. Descobre o melhor status para cada letra em cada tabuleiro
+    for (let charCode = 65; charCode <= 90; charCode++) {
+        const letter = String.fromCharCode(charCode);
+        evaluations[letter] = Array(gameMode.value).fill('empty');
+    }
+
     const boardLetterStatuses = boards.value.map(board => {
         const letterStatus: Record<string, keyof typeof priority> = {};
-
         for (let r = 0; r < activePosition.value.rowIndex; r++) {
             for (let c = 0; c < 5; c++) {
                 const tile = board.grid[r][c];
@@ -66,10 +68,8 @@ const keyEvaluations = computed(() => {
         return letterStatus;
     });
 
-    // 2. Formata os dados para o componente do teclado
     for (let charCode = 65; charCode <= 90; charCode++) {
         const letter = String.fromCharCode(charCode);
-        evaluations[letter] = [];
         for (let i = 0; i < gameMode.value; i++) {
             evaluations[letter][i] = boardLetterStatuses[i]?.[letter] || 'empty';
         }
@@ -554,8 +554,8 @@ onBeforeUnmount(() => {
   --color-background: #F8F9FA;
   --color-text: #212529;
   --color-border: #D3D6DA;
-  --color-key-bg: #EAECEE;
-  --color-key-bg-active: #D3D6DA;
+  --color-key-bg: #D3D6DA;
+  --color-key-bg-active: #B2BABB;
   --color-tile-border: #B2BABB;
   --color-correct: #6AAA64;
   --color-present: #C9B458;
@@ -566,7 +566,7 @@ html.dark {
   --color-background: #121213;
   --color-text: #F8F9FA;
   --color-border: #3A3A3C;
-  --color-key-bg: #3A3A3C;
+  --color-key-bg: #818384;
   --color-key-bg-active: #565758;
   --color-tile-border: #565758;
   --color-correct: #538D4E;
@@ -606,7 +606,7 @@ body { background-color: var(--color-background); color: var(--color-text); tran
 .app-title { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.05em; padding-bottom: 0.25rem; }
 .icon-btn { background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--icon-color); padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .icon-btn svg { width: 24px; height: 24px; fill: currentColor; }
-.icon-btn:hover { background-color: var(--color-key-bg); }
+.icon-btn:hover { background-color: var(--color-key-bg-active); }
 
 .difficulty-selector { display: flex; align-items: center; gap: 0.5rem; }
 .difficulty-selector button {
@@ -650,8 +650,8 @@ body { background-color: var(--color-background); color: var(--color-text); tran
 }
 .boards-container.mode-1 { --board-width: clamp(300px, 45vh, 380px); }
 .boards-container.mode-2 { --board-width: clamp(260px, 38vh, 340px); }
-.boards-container.mode-3 { --board-width: clamp(260px, 38vh, 340px); }
-.boards-container.mode-4 { --board-width: clamp(260px, 38vh, 340px); }
+.boards-container.mode-3 { --board-width: clamp(220px, 30vh, 280px); }
+.boards-container.mode-4 { --board-width: clamp(200px, 25vh, 260px); }
 
 .game-board-wrapper.solved {
   opacity: 0.6;
