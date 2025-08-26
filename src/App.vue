@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue';
 import GameBoard from './components/GameBoard.vue';
 import Keyboard from './components/Keyboard.vue';
 import Modal from './components/Modal.vue';
@@ -10,7 +10,7 @@ const winSound = new Audio("data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAA
 const loseSound = new Audio("data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YSIsanalysis:++++++yamnet_v1_music_embedding,embedding_score:0.5524++++");
 
 const wordList = ref<string[]>([]);
-const deaccentedWordList = ref<string[]>([]); // Lista auxiliar para validação rápida
+const deaccentedWordList = ref<string[]>([]);
 
 const gameState = ref<'playing' | 'won' | 'lost'>('playing');
 const gameMode = ref(1);
@@ -18,6 +18,7 @@ const boards = ref<any[]>([]);
 const secretWords = ref<string[]>([]);
 const isRevealing = ref(false);
 const isLoading = ref(true);
+const isReady = ref(false);
 
 const stats = ref({ played: 0, wins: 0, currentStreak: 0, maxStreak: 0, distribution: Array(9).fill(0) });
 const chances = computed(() => gameMode.value + 5);
@@ -34,42 +35,46 @@ const endGameMessage = ref({ title: '', body: '' });
 const isDarkMode = ref(false);
 const isMuted = ref(false);
 
-// --- FUNÇÃO HELPER PARA REMOVER ACENTOS ---
 const deaccent = (text: string) => {
+  if (!text) return '';
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 };
 
+// CORREÇÃO DEFINITIVA: Lógica de avaliação do teclado refeita
 const keyEvaluations = computed(() => {
     const evaluations: Record<string, string[]> = {};
-    const submittedRows = activePosition.value.rowIndex;
-    if (submittedRows === 0) return {};
+    const priority = { correct: 3, present: 2, absent: 1, empty: 0 };
 
+    // 1. Descobre o melhor status para cada letra em cada tabuleiro
+    const boardLetterStatuses = boards.value.map(board => {
+        const letterStatus: Record<string, keyof typeof priority> = {};
+
+        for (let r = 0; r < activePosition.value.rowIndex; r++) {
+            for (let c = 0; c < 5; c++) {
+                const tile = board.grid[r][c];
+                const letter = deaccent(tile.letter);
+                if (!letter) continue;
+
+                const currentStatus = letterStatus[letter] || 'empty';
+                const newStatus = tile.state as keyof typeof priority;
+
+                if (priority[newStatus] > priority[currentStatus]) {
+                    letterStatus[letter] = newStatus;
+                }
+            }
+        }
+        return letterStatus;
+    });
+
+    // 2. Formata os dados para o componente do teclado
     for (let charCode = 65; charCode <= 90; charCode++) {
         const letter = String.fromCharCode(charCode);
-        const letterEvals: string[] = Array(gameMode.value).fill('empty');
-
-        boards.value.forEach((board, boardIndex) => {
-            let boardStatus = 'empty';
-            for (let r = 0; r < submittedRows; r++) {
-                for (let c = 0; c < 5; c++) {
-                    if (deaccent(board.grid[r][c].letter) === letter) { // Comparação sem acento
-                        const status = board.grid[r][c].state;
-                        if (status === 'correct') {
-                            boardStatus = 'correct';
-                            break;
-                        } else if (status === 'present') {
-                            boardStatus = 'present';
-                        } else if (boardStatus !== 'present' && status !== 'empty') {
-                            boardStatus = 'absent';
-                        }
-                    }
-                }
-                if (boardStatus === 'correct') break;
-            }
-            letterEvals[boardIndex] = boardStatus;
-        });
-        evaluations[letter] = letterEvals;
+        evaluations[letter] = [];
+        for (let i = 0; i < gameMode.value; i++) {
+            evaluations[letter][i] = boardLetterStatuses[i]?.[letter] || 'empty';
+        }
     }
+    
     return evaluations;
 });
 
@@ -130,8 +135,9 @@ const updateStats = (didWin: boolean, winRowIndex: number | null) => {
 };
 
 const startGame = (mode: number) => {
+  isReady.value = false;
   if (wordList.value.length === 0) {
-      showToast("Banco de palavras ainda carregando.");
+      showToast("Banco de palavras vazio ou inválido.");
       isLoading.value = true;
       return;
   }
@@ -161,6 +167,10 @@ const startGame = (mode: number) => {
   activePosition.value = { boardIndex: 0, rowIndex: 0, colIndex: 0 };
   isLoading.value = false;
   showEndGameModal.value = false;
+  
+  nextTick(() => {
+    isReady.value = true;
+  });
 };
 
 const showToast = (message: string) => {
@@ -168,7 +178,6 @@ const showToast = (message: string) => {
   setTimeout(() => { toast.value.show = false; }, 2000);
 };
 
-// ATUALIZADO: Lógica de avaliação agora ignora acentos
 const evaluateGuess = (guess: string, secret: string) => {
   const result = Array(5).fill('absent');
   const deaccentedSecret = deaccent(secret);
@@ -212,7 +221,6 @@ const checkGameStatus = () => {
     }
 };
 
-// ATUALIZADO: Lógica de submissão agora valida sem acento e auto-corrige no tabuleiro
 const submitGuess = () => {
   if (isRevealing.value || gameState.value !== 'playing') return;
   const { rowIndex } = activePosition.value;
@@ -226,7 +234,7 @@ const submitGuess = () => {
     return;
   }
   
-  const deaccentedGuess = deaccent(guess);
+  const deaccentedGuess = deaccent(guess).toUpperCase();
   const wordIndex = deaccentedWordList.value.indexOf(deaccentedGuess);
 
   if (wordIndex === -1) {
@@ -234,9 +242,8 @@ const submitGuess = () => {
     return;
   }
 
-  const canonicalGuess = wordList.value[wordIndex]; // Pega a palavra com acento do banco original
+  const canonicalGuess = wordList.value[wordIndex];
 
-  // Auto-corrige a palavra no tabuleiro antes de animar
   boards.value.forEach(board => {
     if (!board.isSolved) {
       canonicalGuess.split('').forEach((letter, i) => {
@@ -289,7 +296,7 @@ const handleTileSelect = (boardIndex: number, rowIndex: number, colIndex: number
 };
 
 const handleKeyPress = (key: string) => {
-  if (isRevealing.value || gameState.value !== 'playing') return;
+  if (isRevealing.value || gameState.value !== 'playing' || !isReady.value) return;
   const { rowIndex, colIndex } = activePosition.value;
 
   if (key === 'enter') { submitGuess(); return; }
@@ -359,7 +366,7 @@ const confirmUseHint = () => {
 };
 
 const handlePhysicalKeyboard = (e: KeyboardEvent) => {
-  if (showEndGameModal.value || showStatsModal.value || showHintConfirmModal.value || showHowToPlayModal.value) return;
+  if (!isReady.value || showEndGameModal.value || showStatsModal.value || showHintConfirmModal.value || showHowToPlayModal.value) return;
 
   if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
     e.preventDefault();
@@ -379,7 +386,8 @@ const toggleTheme = () => {
 
 async function loadWordList() {
     try {
-        const response = await fetch('/palavras.json');
+        const url = `${import.meta.env.BASE_URL}palavras.json`;
+        const response = await fetch(url);
         if (!response.ok) {
             throw new Error(`Erro na rede! Status: ${response.status}`);
         }
@@ -396,7 +404,7 @@ async function loadWordList() {
 
         const cleanedWords = wordsToProcess
             .map(word => String(word).toUpperCase().trim())
-            .filter(word => word.length === 5 && /^[A-ZÇÃÁÀÂÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜ]+$/.test(deaccent(word))); // Permite acentos e Ç
+            .filter(word => word.length === 5 && /^[A-ZÇÃÁÀÂÄÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜ]+$/.test(deaccent(word)));
         
         if (cleanedWords.length === 0) {
             throw new Error("Nenhuma palavra válida de 5 letras encontrada no banco de palavras.");
@@ -413,6 +421,7 @@ async function loadWordList() {
 }
 
 onMounted(async () => {
+  isReady.value = false;
   loadStats();
   loadSettings();
   await loadWordList();
@@ -586,7 +595,7 @@ body { background-color: var(--color-background); color: var(--color-text); tran
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  width: 1200px;
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -633,7 +642,7 @@ body { background-color: var(--color-background); color: var(--color-text); tran
   align-items: center;
   width: 100%;
   height: 100%;
-  gap: clamp(10px, 5.5vh, 50px);
+  gap: clamp(10px, 1.5vw, 20px);
 }
 .game-board-wrapper {
   width: var(--board-width);
