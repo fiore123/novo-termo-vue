@@ -171,6 +171,11 @@ async function startGame(mode: number) {
   
   await nextTick();
   isReady.value = true;
+
+  // CORREÇÃO DEFINITIVA: Remove o foco de qualquer botão que tenha sido clicado
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
 }
 
 const showToast = (message: string) => {
@@ -442,16 +447,19 @@ onBeforeUnmount(() => {
       <template #title>{{ endGameMessage.title }}</template>
       <template #body>{{ endGameMessage.body }}</template>
     </Modal>
+
     <Modal v-if="showStatsModal" @close="showStatsModal = false" @action="showStatsModal = false">
         <template #title>Estatísticas</template>
         <template #body><StatsDisplay :stats="stats" /></template>
         <template #action-text>Fechar</template>
     </Modal>
+    
     <Modal v-if="showHintConfirmModal" @close="showHintConfirmModal = false" @action="confirmUseHint">
         <template #title>Usar Dica?</template>
         <template #body>Isso revelará uma letra correta. Deseja continuar?</template>
         <template #action-text>Sim, usar dica</template>
     </Modal>
+
     <Modal v-if="showHowToPlayModal" @close="showHowToPlayModal = false" @action="showHowToPlayModal = false">
         <template #title>Como Jogar</template>
         <template #body>
