@@ -136,9 +136,10 @@ const updateStats = (didWin: boolean, winRowIndex: number | null) => {
 
 async function startGame(mode: number) {
   isReady.value = false;
+  isLoading.value = true;
+
   if (wordList.value.length === 0) {
       showToast("Banco de palavras vazio ou inválido.");
-      isLoading.value = true;
       return;
   }
   gameMode.value = mode;
@@ -165,12 +166,11 @@ async function startGame(mode: number) {
   }));
 
   activePosition.value = { boardIndex: 0, rowIndex: 0, colIndex: 0 };
-  isLoading.value = false;
   showEndGameModal.value = false;
+  isLoading.value = false;
   
   await nextTick();
   isReady.value = true;
-  handleTileSelect(0, 0, 0); // <-- ESTA É A LINHA DA CORREÇÃO
 }
 
 const showToast = (message: string) => {
@@ -432,11 +432,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handlePhysicalKeyboard);
 });
-
-// DEBUG: Observa a variável do teclado e imprime no console sempre que ela mudar.
-watch(keyEvaluations, (newValue) => {
-  console.log("STATUS DO TECLADO ATUALIZADO:", newValue);
-});
 </script>
 
 <template>
@@ -447,19 +442,16 @@ watch(keyEvaluations, (newValue) => {
       <template #title>{{ endGameMessage.title }}</template>
       <template #body>{{ endGameMessage.body }}</template>
     </Modal>
-
     <Modal v-if="showStatsModal" @close="showStatsModal = false" @action="showStatsModal = false">
         <template #title>Estatísticas</template>
         <template #body><StatsDisplay :stats="stats" /></template>
         <template #action-text>Fechar</template>
     </Modal>
-    
     <Modal v-if="showHintConfirmModal" @close="showHintConfirmModal = false" @action="confirmUseHint">
         <template #title>Usar Dica?</template>
         <template #body>Isso revelará uma letra correta. Deseja continuar?</template>
         <template #action-text>Sim, usar dica</template>
     </Modal>
-
     <Modal v-if="showHowToPlayModal" @close="showHowToPlayModal = false" @action="showHowToPlayModal = false">
         <template #title>Como Jogar</template>
         <template #body>
@@ -492,64 +484,66 @@ watch(keyEvaluations, (newValue) => {
         <template #action-text>Entendi!</template>
     </Modal>
 
-    <header class="app-header">
-      <div class="header-content">
-        <div class="header-left">
-          <button class="icon-btn" @click="showHowToPlayModal = true">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
-          </button>
-          <button class="icon-btn" @click="showHintConfirmModal = true">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>
-          </button>
-        </div>
-        
-        <div class="header-center">
-          <h1 class="app-title">TERMO</h1>
-          <div class="difficulty-selector">
-            <button @click="startGame(1)" :class="{ active: gameMode === 1 }">1</button>
-            <button @click="startGame(2)" :class="{ active: gameMode === 2 }">2</button>
-            <button @click="startGame(3)" :class="{ active: gameMode === 3 }">3</button>
-            <button @click="startGame(4)" :class="{ active: gameMode === 4 }">4</button>
+    <div v-if="!isReady" class="loading-container">
+        <div class="loading-text">Carregando...</div>
+    </div>
+
+    <div v-else class="game-wrapper">
+        <header class="app-header">
+          <div class="header-content">
+            <div class="header-left">
+              <button class="icon-btn" @click="showHowToPlayModal = true">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M11 18h2v-2h-2v2zm1-16C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-2.21 0-4 1.79-4 4h2c0-1.1.9-2 2-2s2 .9 2 2c0 2-3 1.75-3 5h2c0-2.25 3-2.5 3-5 0-2.21-1.79-4-4-4z"/></svg>
+              </button>
+              <button class="icon-btn" @click="showHintConfirmModal = true">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7zm2.85 11.1l-.85.6V16h-4v-2.3l-.85-.6C7.8 12.16 7 10.63 7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 1.63-.8 3.16-2.15 4.1z"/></svg>
+              </button>
+            </div>
+            
+            <div class="header-center">
+              <h1 class="app-title">TERMO</h1>
+              <div class="difficulty-selector">
+                <button @click="startGame(1)" :class="{ active: gameMode === 1 }">1</button>
+                <button @click="startGame(2)" :class="{ active: gameMode === 2 }">2</button>
+                <button @click="startGame(3)" :class="{ active: gameMode === 3 }">3</button>
+                <button @click="startGame(4)" :class="{ active: gameMode === 4 }">4</button>
+              </div>
+            </div>
+
+            <div class="header-right">
+              <button class="icon-btn" @click="showStatsModal = true">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+              </button>
+              <button class="icon-btn" @click="toggleTheme">
+                <svg v-if="isDarkMode" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.11-1.36-.98 1.37-2.58 2.26-4.39 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.39C12.92 3.04 12.46 3 12 3z"/></svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-10c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/></svg>
+              </button>
+              <button class="icon-btn" @click="toggleMute">
+                <svg v-if="isMuted" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+              </button>
+            </div>
           </div>
-        </div>
-
-        <div class="header-right">
-          <button class="icon-btn" @click="showStatsModal = true">
-            <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
-          </button>
-          <button class="icon-btn" @click="toggleTheme">
-            <svg v-if="isDarkMode" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.11-1.36-.98 1.37-2.58 2.26-4.39 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.39C12.92 3.04 12.46 3 12 3z"/></svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6zm0-10c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/></svg>
-          </button>
-          <button class="icon-btn" @click="toggleMute">
-            <svg v-if="isMuted" xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-            <svg v-else xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-          </button>
-        </div>
-      </div>
-    </header>
-
-    <main class="game-area">
-      <div v-if="isLoading" class="loading-text">Carregando banco de palavras...</div>
-      <div v-else class="boards-container" :class="`mode-${gameMode}`">
-        <div v-for="board in boards" :key="board.id" class="game-board-wrapper" :class="{ solved: board.isSolved }">
-          <GameBoard
-            :boardState="board"
-            :activePosition="activePosition"
-            @tile-select="(boardId, rowIndex, colIndex) => handleTileSelect(boardId, rowIndex, colIndex)"
+        </header>
+        <main class="game-area">
+          <div class="boards-container" :class="`mode-${gameMode}`">
+            <div v-for="board in boards" :key="board.id" class="game-board-wrapper" :class="{ solved: board.isSolved }">
+              <GameBoard
+                :boardState="board"
+                :activePosition="activePosition"
+                @tile-select="(boardId, rowIndex, colIndex) => handleTileSelect(boardId, rowIndex, colIndex)"
+              />
+            </div>
+          </div>
+        </main>
+        <footer class="keyboard-area">
+          <Keyboard 
+            :key-evaluations="keyEvaluations" 
+            :game-mode="gameMode" 
+            @key-press="handleKeyPress" 
           />
-        </div>
-      </div>
-    </main>
-
-    <footer class="keyboard-area">
-      <Keyboard 
-        v-if="!isLoading"
-        :key-evaluations="keyEvaluations" 
-        :game-mode="gameMode" 
-        @key-press="handleKeyPress" 
-      />
-    </footer>
+        </footer>
+    </div>
   </div>
 </template>
 
@@ -588,6 +582,24 @@ body { background-color: var(--color-background); color: var(--color-text); tran
   height: 100vh;
   max-height: 100vh;
   margin: 0 auto;
+}
+
+.game-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+.loading-text {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--icon-color);
 }
 
 .app-header {
@@ -635,11 +647,6 @@ body { background-color: var(--color-background); color: var(--color-text); tran
   justify-content: center;
   padding: 1rem;
   overflow: hidden;
-}
-.loading-text {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--icon-color);
 }
 .boards-container {
   display: flex;
