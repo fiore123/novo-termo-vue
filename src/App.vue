@@ -614,7 +614,7 @@ body { background-color: var(--color-background); color: var(--color-text); tran
   flex-shrink: 0;
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--color-border);
-  width: 100%;
+  width: 1200px;
 }
 .header-content {
   display: grid;
@@ -641,6 +641,9 @@ body { background-color: var(--color-background); color: var(--color-text); tran
   background-color: transparent;
   color: var(--color-text);
   font-size: 0.9rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   font-weight: 600;
   border-radius: 6px;
   cursor: pointer;
@@ -670,8 +673,8 @@ body { background-color: var(--color-background); color: var(--color-text); tran
 }
 .boards-container.mode-1 { --board-width: clamp(300px, 45vh, 380px); }
 .boards-container.mode-2 { --board-width: clamp(260px, 38vh, 340px); }
-.boards-container.mode-3 { --board-width: clamp(220px, 30vh, 280px); }
-.boards-container.mode-4 { --board-width: clamp(200px, 25vh, 260px); }
+.boards-container.mode-3 { --board-width: clamp(260px, 38vh, 340px); }
+.boards-container.mode-4 { --board-width: clamp(260px, 38vh, 340px); }
 
 .game-board-wrapper.solved {
   opacity: 0.6;
